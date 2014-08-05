@@ -1,0 +1,368 @@
+#!/bin/bash
+
+## Initialize
+clear
+appname="my-ubuntu-setup"
+stepsdir="$HOME/.config/$appname"
+steps=()
+stepnames=()
+auto=1
+
+if [ ! -d "$stepsdir" ]; then
+    mkdir -p "$stepsdir"
+fi
+
+## Functions
+function show_heading {
+    echo -e "\033[1;34m$@\033[0m"
+}
+
+function show_info {
+    echo -e "$@"
+}
+
+function show_question {
+    echo -e -n "$@"
+}
+
+function show_success {
+    echo -e "\033[1;32m$@\033[0m"
+}
+
+function show_error {
+    echo -e "\033[1;31m$@\033[m" 1>&2
+}
+
+function refresh_steps {
+    steps=($(find "$stepsdir" -type f -name "*.step" | sort -t '\0'))
+    stepnames=()
+
+    for step in "${steps[@]}"; do
+        name=$(basename "$step")
+        name="${name%%.step}"
+        name="${name#*_}"
+        stepnames+=("$name")
+    done
+}
+
+function list_steps {
+    i=1
+    for step in "${steps[@]}"; do
+        name=$(basename "$step")
+        name="${name%%.step}"
+        name="${name#*_}"
+        stepnames+=("$name")
+
+        echo "$((i++)). $name"
+    done
+}
+
+function count_steps {
+    refresh_steps
+    echo "${#steps[@]}"
+}
+
+function execute_step {
+    if [ ! -f "$1" ]; then
+        show_error "Step \"$1\" can't be found!"
+        return 1
+    fi
+
+    ## Run script
+    (source "${steps[$index]}")
+    echo ""
+
+    ## Validate outcome
+    if [ $? -ne 0 ]; then
+        show_error "Step failed ($1)"
+
+        if [ $auto -ne 0 ]; then
+            echo ""
+            show_question "Press any key to continue..." && read dummy
+        fi
+        return 1
+    else
+        show_success "Step completed successfully!"
+
+        if [ $auto -ne 0 ]; then
+            echo ""
+            show_question "Press any key to continue..." && read dummy
+        fi
+        return 0
+    fi
+}
+
+function insert_step {
+    echo ""
+}
+
+##-----------Views-----------##
+## Main menu
+function main {
+    show_heading "What would you like to do?"
+    echo ""
+    echo "1. Run a configuration step"
+    echo "2. Create a configuration step"
+    echo "3. Manage configuration steps"
+    echo "4. Cleanup the system"
+    echo "q. Quit"
+    echo ""
+    show_question "Enter your choice: " && read reply
+
+    case $reply in
+        1) clear && run;; # System Upgrade
+        2) clear && create;; # Install Favourite Applications
+        3) clear && manage;; # Install Favourite Tools
+        4) clear && cleanup;; # Install Dev Tools
+        [Qq]* ) echo "" && quit;; # Quit
+        * ) clear && show_error '\aNot an option, try again.' && main;;
+    esac
+}
+
+## Run a step
+function run {
+    show_heading "Which step would you like to run? (\"b\" to abort)"
+    echo ""
+
+    ## List steps
+    refresh_steps
+    list_steps
+    echo "b. Back"
+    echo ""
+    show_question "Enter your choice: " && read reply
+
+    case $reply in
+        [Bb]*) clear && main;;
+        *)
+            if [ $reply -lt 1 ] || [ $reply -gt $(count_steps) ]; then
+                clear && show_error "\aNot an option, try again.\n" && run
+            else
+                index=$((--reply))
+                echo ""
+                show_heading "Running: \"${stepnames[$index]}\""
+                echo ""
+                execute_step "${steps[$index]}"
+
+                clear && run
+            fi
+        ;;
+    esac
+}
+
+## Create a step
+function create {
+    proceed=1
+    tempscript=1
+    show_heading "Creating a new step (\"b\" to go back)"
+    echo ""
+
+    ## Script path
+    while [ ! $proceed ]; do
+        show_question "Script to import (Empty to create a new script): "
+        read script
+
+        case $script in
+            [Bb]*) clear && main;;
+            *)
+                ## Create script
+                if [ -z "$script" ]; then
+                    script="$scriptdir/.new-script.tmp"
+                    tempscript=0
+                    nano "$script"
+                    proceed=0
+                ## Import Script
+                else
+                    if [ ! -f "$script" ]; then
+                        echo ""
+                        show_error "\aFile can't be found!\n"
+                    else
+                        proceed=0
+                    fi
+                fi
+            ;;
+        esac
+    done
+
+    ## Step name
+    show_question "Step name: "
+    read name
+
+    case $name in
+        [Bb]) clear && main;;
+    esac
+
+    ## Step execution order
+    refresh_steps
+    list_steps
+    proceed=1
+
+    while [ ! $proceed ]; do
+        show_question "Execution order (empty to insert at end): "
+        read order
+
+        case $order in
+            [Bb]*) clear && main;;
+            *)
+                if [ -z "$order"]; then
+                    insert_step "$script" "$name"
+                    proceed=0
+                else
+                    if ! [[ $yournumber =~ ^[0-9]+$ ]]; then
+                        show_error "\aInput is not a number!\n"
+                    else
+                        insert_step
+                        proceed=0
+                    fi
+                fi
+            ;;
+        esac
+    done
+
+    ## Delete tempscript if it was created now
+    if [ $tempscript -eq 0 ]; then
+        rm -f "$script"
+    fi
+
+    show_success "Step created successfully!"
+    clear && main
+}
+
+function manage {
+    show_heading "Manage what step? (\"b\" to go back)"
+    echo ""
+    refresh_steps
+    list_steps
+
+    ## Select step
+    proceed=0
+    show_question "Step: "
+    read step
+
+    while [ ! $proceed ]; do
+        case $step in
+            [Bb]*) clear && main;;
+            *)
+                if ! [[ $yournumber =~ ^[0-9]+$ ]]; then
+                    show_error "\aInput is not a number!\n"
+                else
+                    insert_step
+                    proceed=0
+                fi
+            ;;
+        esac
+    done
+
+    ## Select action
+    proceed=1
+    while [ ! $proceed ]; do
+        show_heading "What action do you want to perform?"
+        echo ""
+        echo "1. Edit"
+        echo "2. Change execution order"
+        echo "3. Delete"
+        echo "b. Back"
+        echo ""
+        show_question "Action: "
+        read action
+
+        case $step in
+            [Bb]*) clear && main;;
+            1) ;;
+            2) ;;
+            3) ;;
+            *) clear && show_error "\aNot an option, try again.\n" ;;
+        esac
+    done
+}
+
+main
+exit
+
+
+
+function cleanup {
+
+    show_info 'What would you like to do? '
+echo ''
+echo '1. Remove unused pre-installed packages?'
+echo '2. Remove old kernel(s)?'
+echo '3. Remove orphaned packages?'
+echo '4. Remove leftover configuration files?'
+echo '5. Clean package cache?'
+echo 'r. Return?'
+echo ''
+show_info 'Enter your choice:' && read REPLY
+case $REPLY in
+# Remove Unused Pre-installed Packages
+1)
+    echo 'Removing unused pre-installed applications...'
+    echo ''
+    echo 'Current package list:'
+    echo ''
+    for package in $(cat $PURGED)
+    do
+    echo -e '\t'$package
+    done
+    echo ''
+    show_info 'Proceed? (Y)es, (N)o : ' && read REPLY
+    echo ''
+    case $REPLY in
+    # Positive action
+    [Yy]* )
+        show_info 'Requires root privileges:'
+        sudo apt-get purge -y $(cat $PURGED)
+        show_success 'Done.'
+        cleanup
+        ;;
+    # Negative action
+    [Nn]* )
+        clear && cleanup
+        ;;
+    # Error
+    * )
+        clear && show_error '\aSorry, try again.'
+        cleanup
+        ;;
+    esac
+    ;;
+# Remove Old Kernel
+2)
+    echo 'Removing old Kernel(s)...'
+    show_info 'Requires root privileges:'
+    sudo dpkg -l 'linux-*' | sed '/^ii/!d;/'"$(uname -r | sed "s/\(.*\)-\([^0-9]\+\)/\1/")"'/d;s/^[^ ]* [^ ]* \([^ ]*\).*/\1/;/[0-9]/!d' | grep -v linux-libc-dev | xargs sudo apt-get -y purge
+    show_success 'Done.'
+    cleanup
+    ;;
+# Remove Orphaned Packages
+3)
+    echo 'Removing orphaned packages...'
+    show_info 'Requires root privileges:'
+    sudo apt-get autoremove -y
+    show_success 'Done.'
+    cleanup
+    ;;
+# Remove residual config files?
+4)
+    echo 'Removing leftover configuration files...'
+    show_info 'Requires root privileges:'
+    sudo dpkg --purge $(COLUMNS=200 dpkg -l | grep '^rc' | tr -s ' ' | cut -d ' ' -f 2)
+    show_success 'Done.'
+    cleanup
+    ;;
+# Clean Package Cache
+5)
+    echo 'Cleaning package cache...'
+    show_info 'Requires root privileges:'
+    sudo apt-get clean
+    show_success 'Done.'
+    cleanup
+    ;;
+# Return
+[Rr]*)
+    clear && main;;
+# Invalid choice
+* )
+    clear && show_error '\aNot an option, try again.' && cleanup;;
+esac
+}
+}
