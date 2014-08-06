@@ -15,6 +15,6 @@ A configuration step is basically a BASH-script where you can add PPA's, install
 
 You can either use your own editor to edit the scripts in the `~/.config/my-ubuntu-setup` directory or use the menu from the script which launches a nano instance whenever editing or creating steps. The latter is the preferred way since it will make sure that the files are correctly named and numbered. If you've been mucking around too much with the files outside of the script's editor, you can run "Reorder steps" from the "Cleanup" menu and it will rename them appropriately.
 
-The way I myself am using this script is that I have a git repository, which I pull to `~/.config/my-ubuntu-setup`, where I store all my configurations and can simply clone the repository whenever I need to set up my development environment. Check out https://github.com/nsrosenqvist/env-setup for an example.
+The way I myself am using this script is that I have a git repository, which I pull to `~/.config/my-ubuntu-setup`, where I store all my configurations and can simply clone the repository whenever I need to set up my development environment. Check out [my configuration](https://github.com/nsrosenqvist/env-setup) for an example.
 
 Feel free to copy, improve and distribute.
