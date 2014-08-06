@@ -1,18 +1,25 @@
 #!/bin/bash
 
-## Initialize
 clear
 appname="my-ubuntu-setup"
 stepsdir="$HOME/.config/$appname"
+globalspath="$stepsdir/globals.conf"
 steps=()
 stepnames=()
-auto=1
 
+## Create config directory
 if [ ! -d "$stepsdir" ]; then
     mkdir -p "$stepsdir"
 fi
 
-## Functions
+## Create global vars file
+if [ ! -f "$globalspath" ]; then
+    echo "emailaddress=\"your-email@example.com\"" > "$globalspath"
+fi
+
+source "$globalspath"
+
+##-----------Functions-----------##
 function show_heading {
     echo -e "\033[1;34m$@\033[0m"
 }
@@ -34,31 +41,30 @@ function show_error {
 }
 
 function refresh_steps {
-    steps=($(find "$stepsdir" -type f -name "*.step" | sort -t '\0'))
+    steps=()
     stepnames=()
 
-    for step in "${steps[@]}"; do
-        name=$(basename "$step")
-        name="${name%%.step}"
-        name="${name#*_}"
-        stepnames+=("$name")
-    done
+    while IFS= read -r step; do
+        stepname=$(basename "${step}")
+        stepname="${stepname%%.step}"
+        stepname="${stepname#*_}"
+        steps+=("$step")
+        stepnames+=("$stepname")
+    done < <(find "$stepsdir" -maxdepth 1 -type f -name "*.step" | sort -V)
 }
 
 function list_steps {
-    i=1
-    for step in "${steps[@]}"; do
-        name=$(basename "$step")
-        name="${name%%.step}"
-        name="${name#*_}"
-        stepnames+=("$name")
+    for ((i = 0; i < ${#steps[@]}; i++)); do
+        stepname=$(basename "${steps[i]}")
+        stepname="${stepname%%.step}"
+        stepname="${stepname#*_}"
+        stepnames+=("$stepname")
 
-        echo "$((i++)). $name"
+        echo "$(($i+1)). $stepname"
     done
 }
 
 function count_steps {
-    refresh_steps
     echo "${#steps[@]}"
 }
 
@@ -68,12 +74,19 @@ function execute_step {
         return 1
     fi
 
+    if [ "$2" = "auto" ]; then
+        auto=0
+    else
+        auto=1
+    fi
+
     ## Run script
     (source "${steps[$index]}")
+    result=$?
     echo ""
 
     ## Validate outcome
-    if [ $? -ne 0 ]; then
+    if [ $result -ne 0 ]; then
         show_error "Step failed ($1)"
 
         if [ $auto -ne 0 ]; then
@@ -93,7 +106,87 @@ function execute_step {
 }
 
 function insert_step {
-    echo ""
+    path="$1"
+    name="$2"
+    append=0
+    order=0
+
+    ## Make sure that order is numeric before assigning
+    if [[ $3 =~ ^[0-9]+$ ]]; then
+        append=1
+        order=$3
+    fi
+
+    ## Loop through steps and rename them appropriately
+    refresh_steps
+    stepno=1
+    index=0
+
+    ## Loop through all steps
+    for ((i = 0; i < ${#steps[@]}; i++)); do
+        step="${steps[i]}"
+        ## If file is to be appended at end of list
+        ## Then just loop through them all and add it at the end
+        if [ $append -eq 0 ]; then
+            if [ "$step" != "$stepsdir/${stepno}_${stepnames[$index]}.step" ]; then
+                mv "$step" "$stepsdir/${stepno}_${stepnames[$index]}.step"
+            fi
+        else
+            ## If the file has been appended already
+            ## make sure that the remaining get correct index
+            if [ $stepno -gt $order ]; then
+                if [ "$step" != "$stepsdir/$(($stepno+1))_${stepnames[$index]}.step" ]; then
+                    mv "$step" "$stepsdir/$(($stepno+1))_${stepnames[$index]}.step"
+                fi
+            else
+                ## Add the file at step if at correct index
+                if [ $stepno -eq $order ]; then
+                    mv "$path" "$stepsdir/${stepno}_$name.step"
+                    
+                    if [ "$step" != "$stepsdir/$(($stepno+1))_${stepnames[$index]}.step" ]; then
+                        mv "$step" "$stepsdir/$(($stepno+1))_${stepnames[$index]}.step"    
+                    fi
+                else
+                    if [ "$step" != "$stepsdir/${stepno}_${stepnames[$index]}.step" ]; then
+                        mv "$step" "$stepsdir/${stepno}_${stepnames[$index]}.step"
+                    fi
+                fi
+            fi
+        fi
+
+        stepno=$(($stepno+1))
+        index=$(($index+1))
+    done
+
+    ## If we're to append at the end
+    if [ $append -eq 0 ]; then
+        mv "$path" "$stepsdir/${stepno}_$name.step"
+    fi
+
+    refresh_steps
+    return 0
+}
+
+function reorder_steps {
+    ## Loop through steps and rename them appropriately
+    refresh_steps
+    stepno=1
+    index=0
+
+    ## Rename them so that they are properly ordered
+    for ((i = 0; i < ${#steps[@]}; i++)); do
+        step="${steps[i]}"
+
+        if [ "$step" != "$stepsdir/${stepno}_${stepnames[$index]}.step" ]; then
+            mv "$step" "$stepsdir/${stepno}_${stepnames[$index]}.step"
+        fi
+
+        stepno=$(($stepno+1))
+        index=$(($index+1))
+    done
+
+    refresh_steps
+    return 0
 }
 
 ##-----------Views-----------##
@@ -104,27 +197,32 @@ function main {
     echo "1. Run a configuration step"
     echo "2. Create a configuration step"
     echo "3. Manage configuration steps"
-    echo "4. Cleanup the system"
+    echo "4. Run through all configuration steps automatically"
+    echo "5. Edit step variables"
+    echo "6. Cleanup the system"
     echo "q. Quit"
     echo ""
     show_question "Enter your choice: " && read reply
 
+    ## Run the user's choice
     case $reply in
-        1) clear && run;; # System Upgrade
-        2) clear && create;; # Install Favourite Applications
-        3) clear && manage;; # Install Favourite Tools
-        4) clear && cleanup;; # Install Dev Tools
-        [Qq]* ) echo "" && quit;; # Quit
-        * ) clear && show_error '\aNot an option, try again.' && main;;
+        1) clear && run_step;; # Run a step
+        2) clear && create_step;; # Create a step
+        3) clear && manage_steps;; # Manage steps
+        4) clear && autorun_steps;; # Autorun all configured steps
+        5) clear && nano "$globalspath" && clear && main;; # Edit the global variables
+        6) clear && cleanup;; # Perform cleanup operations
+        [Qq]* ) echo "" && exit 0;; # Quit
+        * ) clear && show_error "\aNot an option, try again." && main;;
     esac
 }
 
 ## Run a step
-function run {
-    show_heading "Which step would you like to run? (\"b\" to abort)"
+function run_step {
+    show_heading "Which step would you like to run? (\"b\" to go back)"
     echo ""
 
-    ## List steps
+    ## Choose a step
     refresh_steps
     list_steps
     echo "b. Back"
@@ -134,41 +232,202 @@ function run {
     case $reply in
         [Bb]*) clear && main;;
         *)
-            if [ $reply -lt 1 ] || [ $reply -gt $(count_steps) ]; then
-                clear && show_error "\aNot an option, try again.\n" && run
+            ## Verify numeric
+            if ! [[ $reply =~ ^[0-9]+$ ]]; then
+                clear && show_error "\aInput is not a number!\n" && run_step
             else
-                index=$((--reply))
-                echo ""
-                show_heading "Running: \"${stepnames[$index]}\""
-                echo ""
-                execute_step "${steps[$index]}"
+                # Verify the step exists
+                if [ $reply -lt 1 ] || [ $reply -gt $(count_steps) ]; then
+                    clear && show_error "\aNot an option, try again.\n" && run_step
+                else
+                    ## Run selected step
+                    index=$(($reply-1))
+                    echo ""
+                    show_heading "Running: \"${stepnames[$index]}\""
+                    echo ""
+                    execute_step "${steps[$index]}"
 
-                clear && run
+                    clear && run_step
+                fi
             fi
         ;;
     esac
 }
 
 ## Create a step
-function create {
+function create_step {
     proceed=1
     tempscript=1
     show_heading "Creating a new step (\"b\" to go back)"
     echo ""
 
     ## Script path
-    while [ ! $proceed ]; do
+    while [ $proceed -ne 0 ]; do
         show_question "Script to import (Empty to create a new script): "
         read script
 
         case $script in
-            [Bb]*) clear && main;;
+            [Bb]) clear && main;;
             *)
                 ## Create script
                 if [ -z "$script" ]; then
-                    script="$scriptdir/.new-script.tmp"
-                    tempscript=0
+                    script="$stepsdir/.new-script.tmp"
                     nano "$script"
+                    proceed=0
+                ## Import Script
+                else
+                    ## Support tilde for "home"
+                    if [ "${script:0:1}" = "~" ]; then
+                        script="${script#~*}"
+                        script="${HOME}${script}"
+                    fi
+
+                    if [ ! -f "$script" ]; then
+                        echo ""
+                        show_error "\aFile can't be found!\n"
+                    else
+                        cp "$script" "$stepsdir/.new-script.tmp"
+                        script="$stepsdir/.new-script.tmp"
+                        proceed=0
+                    fi
+                fi
+            ;;
+        esac
+    done
+
+    ## Step name
+    show_question "Step name (only use characters allowed in a Linux filesystem): "
+    read name
+
+    case $name in
+        [Bb]) clear && main;;
+    esac
+
+    ## Step execution order
+    proceed=1
+
+    while [ $proceed -ne 0 ]; do
+        echo ""
+        refresh_steps
+        list_steps
+        echo ""
+        show_question "Execution order (Empty to insert at end): "
+        read order
+
+        case $order in
+            [Bb]*) clear && main;;
+            *)
+                ## If order is empty we just insert at end
+                if [ -z "$order" ]; then
+                    insert_step "$script" "$name"
+                    proceed=0
+                else
+                    ## Verify input
+                    if ! [[ $order =~ ^[0-9]+$ ]]; then
+                        show_error "\aInput is not a number!\n"
+                    else
+                        if [ $order -lt 1 ] || [ $order -gt $(count_steps) ]; then
+                            clear && show_error "\aNot an option, try again.\n"
+                        else
+                            insert_step "$script" "$name" $order
+                            proceed=0
+                        fi
+                    fi
+                fi
+            ;;
+        esac
+    done
+
+    ## Delete tempscript
+    rm -f "$script"
+
+    echo ""
+    show_success "Step created successfully!"
+    echo ""
+    show_question "Press any key to continue... "
+    read reply
+
+    clear && main
+}
+
+function manage_steps {
+    ## Select step to edit
+    proceed=1
+    
+    while [ $proceed -ne 0 ]; do
+        show_heading "Manage what step? (\"b\" to go back)"
+        echo ""
+        refresh_steps
+        list_steps
+        echo ""
+        show_question "Step: "
+        read step
+
+        case $step in
+            [Bb]*) clear && main;;
+            *)
+                if ! [[ $step =~ ^[0-9]+$ ]]; then
+                    clear && show_error "\aInput is not a number!\n"
+                else
+                    if [ $step -lt 1 ] || [ $step -gt $(count_steps) ]; then
+                        clear && show_error "\aNot an option, try again.\n"
+                    else
+                        proceed=0
+                    fi
+                fi
+            ;;
+        esac
+    done
+
+    ## Select action
+    proceed=1
+    echo ""
+
+    while [ $proceed -ne 0 ]; do
+        show_heading "What action do you want to perform?"
+        echo ""
+        echo "1. Edit step"
+        echo "2. Delete"
+        echo "b. Back"
+        echo ""
+        show_question "Action: "
+        read action
+
+        case $action in
+            [Bb]*) clear && proceed=0 && manage_steps;; # Back
+            1) clear && proceed=0 && edit_step $step;; # Edit
+            2) clear && proceed=0 && delete_step $step;; # Delete
+            *) clear && show_error "\aNot an option, try again.\n" ;;
+        esac
+    done
+}
+
+function edit_step {
+    index=$(($1-1))
+    proceed=1
+    samefile=1
+    show_heading "Editing \"${stepnames[$index]}\" (\"b\" to go back)"
+    echo ""
+
+    ## Script path
+    while [ $proceed -ne 0 ]; do
+        show_question "Script to import (${steps[$index]}) (Empty to skip change, \"e\" to edit file): "
+        read script
+
+        case $script in
+            [Bb]) clear && main;;
+            ## Edit script with nano
+            [Ee])
+                nano "${steps[$index]}"
+                script="${steps[$index]}"
+                samefile=0
+                proceed=0
+            ;;
+            *)
+                ## Create script
+                if [ -z "$script" ]; then
+                    script="${steps[$index]}"
+                    samefile=0
                     proceed=0
                 ## Import Script
                 else
@@ -184,34 +443,55 @@ function create {
     done
 
     ## Step name
-    show_question "Step name: "
+    show_question "Step name (${stepnames[$index]}) (Empty to skip change, only use characters allowed in a Linux filesystem): "
     read name
 
     case $name in
         [Bb]) clear && main;;
+        *)
+            if [ -z "$name" ]; then
+                name="${stepnames[$index]}"
+            fi
+        ;;
     esac
 
     ## Step execution order
-    refresh_steps
-    list_steps
     proceed=1
+    echo ""
 
-    while [ ! $proceed ]; do
-        show_question "Execution order (empty to insert at end): "
+    while [ $proceed -ne 0 ]; do
+        refresh_steps
+        list_steps
+        echo ""
+        show_question "Execution order ($(($index+1))) (Empty to insert at end): "
         read order
 
         case $order in
             [Bb]*) clear && main;;
             *)
-                if [ -z "$order"]; then
+                ## Make a temporary file for the script
+                ## so that the old one can be deleted
+                ## and we can reinsert the script
+                if [ $samefile -eq 0 ]; then
+                    cp "$script" "$stepsdir/.new-script.tmp"
+                    rm -f "$script"
+                    script="$stepsdir/.new-script.tmp"
+                    tempscript=0
+                fi
+                
+                if [ -z "$order" ]; then
                     insert_step "$script" "$name"
                     proceed=0
                 else
-                    if ! [[ $yournumber =~ ^[0-9]+$ ]]; then
+                    if ! [[ $order =~ ^[0-9]+$ ]]; then
                         show_error "\aInput is not a number!\n"
                     else
-                        insert_step
-                        proceed=0
+                        if [ $order -lt 1 ] || [ $order -gt $(count_steps) ]; then
+                            clear && show_error "\aNot an option, try again.\n"
+                        else
+                            insert_step "$script" "$name" $order
+                            proceed=0
+                        fi
                     fi
                 fi
             ;;
@@ -223,146 +503,103 @@ function create {
         rm -f "$script"
     fi
 
-    show_success "Step created successfully!"
-    clear && main
+    echo ""
+    show_success "Step updated successfully!"
+    echo ""
+    show_question "Press any key to continue... "
+    read reply
+
+    clear && manage_steps
 }
 
-function manage {
-    show_heading "Manage what step? (\"b\" to go back)"
+function delete_step {
+    index=$(($1-1))
+    show_heading "Deleting ${stepnames[$index]}..."
+    echo ""
+    show_question "Are you sure you want to continue? (\"y\" to continue, anything else to abort) "
+    read reply
+
+    ## Either delete or abort
+    case $reply in
+        [Yy]*) rm -f "${steps[$index]}" && reorder_steps && clear && manage_steps;;
+        * ) clear && show_error "\aAborted!\n" && manage_steps;;
+    esac
+
+    return 0
+}
+
+function autorun_steps {
+    show_heading "Running through all configuration steps (\"b\" to go back):"
     echo ""
     refresh_steps
     list_steps
+    echo ""
+    show_question "Press any key to continue... "
+    read reply
 
-    ## Select step
-    proceed=0
-    show_question "Step: "
-    read step
+    ## Option to abort
+    case $reply in
+        [Bb]*) clear && main;;
+    esac
 
-    while [ ! $proceed ]; do
-        case $step in
-            [Bb]*) clear && main;;
-            *)
-                if ! [[ $yournumber =~ ^[0-9]+$ ]]; then
-                    show_error "\aInput is not a number!\n"
-                else
-                    insert_step
-                    proceed=0
-                fi
-            ;;
-        esac
+    ## Loop through all steps and run them
+    for ((i = 0; i < ${#steps[@]}; i++)); do
+        step="${steps[i]}"
+        echo ""
+        show_heading "${stepnames[$i]}:"
+        echo ""
+        execute_step "${steps[$i]}" auto
     done
 
-    ## Select action
-    proceed=1
-    while [ ! $proceed ]; do
-        show_heading "What action do you want to perform?"
-        echo ""
-        echo "1. Edit"
-        echo "2. Change execution order"
-        echo "3. Delete"
-        echo "b. Back"
-        echo ""
-        show_question "Action: "
-        read action
+    echo ""
+    show_question "Press any key to continue..."
+    read reply
+    clear && main   
+}
 
-        case $step in
-            [Bb]*) clear && main;;
-            1) ;;
-            2) ;;
-            3) ;;
-            *) clear && show_error "\aNot an option, try again.\n" ;;
-        esac
-    done
+function cleanup {
+    show_heading "What would you like to do?"
+    echo ""
+    echo "1. Remove old kernel(s)?"
+    echo "2. Remove orphaned packages?"
+    echo "3. Remove leftover configuration files?"
+    echo "4. Clean package cache?"
+    echo "b. Back"
+    echo ""
+    show_question "Enter your choice: "
+    read reply
+
+    case $reply in
+        # Remove Old Kernel
+        1)
+            show_heading "Removing old Kernel(s)..."
+            sudo dpkg -l 'linux-*' | sed '/^ii/!d;/'"$(uname -r | sed "s/\(.*\)-\([^0-9]\+\)/\1/")"'/d;s/^[^ ]* [^ ]* \([^ ]*\).*/\1/;/[0-9]/!d' | grep -v linux-libc-dev | xargs sudo apt-get -y purge
+            show_success "Done."
+        ;;
+        # Remove Orphaned Packages
+        2)
+            show_heading "Removing orphaned packages..."
+            sudo apt-get autoremove -y
+            show_success "Done."
+        ;;
+        # Remove residual config files?
+        3)
+            show_heading "Removing leftover configuration files..."
+            sudo dpkg --purge $(COLUMNS=200 dpkg -l | grep '^rc' | tr -s ' ' | cut -d ' ' -f 2)
+            show_success "Done."
+        ;;
+        # Clean Package Cache
+        4)
+            show_heading "Cleaning package cache..."
+            sudo apt-get clean
+            show_success "Done."
+        ;;
+        # Back
+        [Bb]*) clear && main;;
+        # Invalid choice
+        * ) clear && show_error "\aNot an option, try again.\n" && cleanup;;
+    esac
 }
 
 main
-exit
-
-
-
-function cleanup {
-
-    show_info 'What would you like to do? '
-echo ''
-echo '1. Remove unused pre-installed packages?'
-echo '2. Remove old kernel(s)?'
-echo '3. Remove orphaned packages?'
-echo '4. Remove leftover configuration files?'
-echo '5. Clean package cache?'
-echo 'r. Return?'
-echo ''
-show_info 'Enter your choice:' && read REPLY
-case $REPLY in
-# Remove Unused Pre-installed Packages
-1)
-    echo 'Removing unused pre-installed applications...'
-    echo ''
-    echo 'Current package list:'
-    echo ''
-    for package in $(cat $PURGED)
-    do
-    echo -e '\t'$package
-    done
-    echo ''
-    show_info 'Proceed? (Y)es, (N)o : ' && read REPLY
-    echo ''
-    case $REPLY in
-    # Positive action
-    [Yy]* )
-        show_info 'Requires root privileges:'
-        sudo apt-get purge -y $(cat $PURGED)
-        show_success 'Done.'
-        cleanup
-        ;;
-    # Negative action
-    [Nn]* )
-        clear && cleanup
-        ;;
-    # Error
-    * )
-        clear && show_error '\aSorry, try again.'
-        cleanup
-        ;;
-    esac
-    ;;
-# Remove Old Kernel
-2)
-    echo 'Removing old Kernel(s)...'
-    show_info 'Requires root privileges:'
-    sudo dpkg -l 'linux-*' | sed '/^ii/!d;/'"$(uname -r | sed "s/\(.*\)-\([^0-9]\+\)/\1/")"'/d;s/^[^ ]* [^ ]* \([^ ]*\).*/\1/;/[0-9]/!d' | grep -v linux-libc-dev | xargs sudo apt-get -y purge
-    show_success 'Done.'
-    cleanup
-    ;;
-# Remove Orphaned Packages
-3)
-    echo 'Removing orphaned packages...'
-    show_info 'Requires root privileges:'
-    sudo apt-get autoremove -y
-    show_success 'Done.'
-    cleanup
-    ;;
-# Remove residual config files?
-4)
-    echo 'Removing leftover configuration files...'
-    show_info 'Requires root privileges:'
-    sudo dpkg --purge $(COLUMNS=200 dpkg -l | grep '^rc' | tr -s ' ' | cut -d ' ' -f 2)
-    show_success 'Done.'
-    cleanup
-    ;;
-# Clean Package Cache
-5)
-    echo 'Cleaning package cache...'
-    show_info 'Requires root privileges:'
-    sudo apt-get clean
-    show_success 'Done.'
-    cleanup
-    ;;
-# Return
-[Rr]*)
-    clear && main;;
-# Invalid choice
-* )
-    clear && show_error '\aNot an option, try again.' && cleanup;;
-esac
-}
-}
+exit 0
