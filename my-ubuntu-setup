@@ -139,7 +139,6 @@ function insert_step {
     ## Loop through steps and rename them appropriately
     refresh_steps
     stepno=1
-    index=0
 
     ## Loop through all steps
     for ((i = 0; i < ${#steps[@]}; i++)); do
@@ -147,34 +146,33 @@ function insert_step {
         ## If file is to be appended at end of list
         ## Then just loop through them all and add it at the end
         if [ $append -eq 0 ]; then
-            if [ "$step" != "$stepsdir/${stepno}_${stepnames[$index]}.step" ]; then
-                mv "$step" "$stepsdir/${stepno}_${stepnames[$index]}.step"
+            if [ "$step" != "$stepsdir/${stepno}_${stepnames[$i]}.step" ]; then
+                mv "$step" "$stepsdir/${stepno}_${stepnames[$i]}.step"
             fi
         else
             ## If the file has been appended already
             ## make sure that the remaining get correct index
             if [ $stepno -gt $order ]; then
-                if [ "$step" != "$stepsdir/$(($stepno+1))_${stepnames[$index]}.step" ]; then
-                    mv "$step" "$stepsdir/$(($stepno+1))_${stepnames[$index]}.step"
+                if [ "$step" != "$stepsdir/$(($stepno+1))_${stepnames[$i]}.step" ]; then
+                    mv "$step" "$stepsdir/$(($stepno+1))_${stepnames[$i]}.step"
                 fi
             else
                 ## Add the file at step if at correct index
                 if [ $stepno -eq $order ]; then
                     mv "$path" "$stepsdir/${stepno}_$name.step"
                     
-                    if [ "$step" != "$stepsdir/$(($stepno+1))_${stepnames[$index]}.step" ]; then
-                        mv "$step" "$stepsdir/$(($stepno+1))_${stepnames[$index]}.step"    
+                    if [ "$step" != "$stepsdir/$(($stepno+1))_${stepnames[$i]}.step" ]; then
+                        mv "$step" "$stepsdir/$(($stepno+1))_${stepnames[$i]}.step"    
                     fi
                 else
-                    if [ "$step" != "$stepsdir/${stepno}_${stepnames[$index]}.step" ]; then
-                        mv "$step" "$stepsdir/${stepno}_${stepnames[$index]}.step"
+                    if [ "$step" != "$stepsdir/${stepno}_${stepnames[$i]}.step" ]; then
+                        mv "$step" "$stepsdir/${stepno}_${stepnames[$i]}.step"
                     fi
                 fi
             fi
         fi
 
         stepno=$(($stepno+1))
-        index=$(($index+1))
     done
 
     ## If we're to append at the end
@@ -190,18 +188,16 @@ function reorder_steps {
     ## Loop through steps and rename them appropriately
     refresh_steps
     stepno=1
-    index=0
 
     ## Rename them so that they are properly ordered
     for ((i = 0; i < ${#steps[@]}; i++)); do
         step="${steps[i]}"
 
-        if [ "$step" != "$stepsdir/${stepno}_${stepnames[$index]}.step" ]; then
-            mv "$step" "$stepsdir/${stepno}_${stepnames[$index]}.step"
+        if [ "$step" != "$stepsdir/${stepno}_${stepnames[$i]}.step" ]; then
+            mv "$step" "$stepsdir/${stepno}_${stepnames[$i]}.step"
         fi
 
         stepno=$(($stepno+1))
-        index=$(($index+1))
     done
 
     refresh_steps
@@ -583,6 +579,7 @@ function cleanup {
     echo "2. Remove orphaned packages?"
     echo "3. Remove leftover configuration files?"
     echo "4. Clean package cache?"
+    echo "5. Reorder steps?"
     echo "b. Back"
     echo ""
     show_question "Enter your choice: "
@@ -591,26 +588,32 @@ function cleanup {
     case $reply in
         # Remove Old Kernel
         1)
-            show_heading "Removing old Kernel(s)..."
+            show_heading "\nRemoving old Kernel(s)...\n"
             sudo dpkg -l 'linux-*' | sed '/^ii/!d;/'"$(uname -r | sed "s/\(.*\)-\([^0-9]\+\)/\1/")"'/d;s/^[^ ]* [^ ]* \([^ ]*\).*/\1/;/[0-9]/!d' | grep -v linux-libc-dev | xargs sudo apt-get -y purge
-            show_success "Done."
+            show_success "\nDone."
         ;;
         # Remove Orphaned Packages
         2)
-            show_heading "Removing orphaned packages..."
+            show_heading "\nRemoving orphaned packages...\n"
             sudo apt-get autoremove -y
-            show_success "Done."
+            show_success "\nDone."
         ;;
         # Remove residual config files?
         3)
-            show_heading "Removing leftover configuration files..."
+            show_heading "\nRemoving leftover configuration files...\n"
             sudo dpkg --purge $(COLUMNS=200 dpkg -l | grep '^rc' | tr -s ' ' | cut -d ' ' -f 2)
-            show_success "Done."
+            show_success "\nDone."
         ;;
         # Clean Package Cache
         4)
-            show_heading "Cleaning package cache..."
+            show_heading "\nCleaning package cache...\n"
             sudo apt-get clean
+            show_success "\Done."
+        ;;
+        # Reorder steps
+        5)
+            show_heading "\nReordering steps...\n"
+            reorder_steps
             show_success "Done."
         ;;
         # Back
@@ -618,6 +621,12 @@ function cleanup {
         # Invalid choice
         * ) clear && show_error "\aNot an option, try again.\n" && cleanup;;
     esac
+
+    echo ""
+    show_question "Press any key to continue... "
+    read reply
+
+    clear && cleanup
 }
 
 main
