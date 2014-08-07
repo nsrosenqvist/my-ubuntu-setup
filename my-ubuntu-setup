@@ -541,7 +541,7 @@ function delete_step {
 
     show_heading "Deleting ${stepnames[$index]}..."
     echo ""
-    show_question "Are you sure you want to continue? (\"y\" to continue, anything else to abort) " && read -n 1 reply
+    show_question "Are you sure you want to continue? (y/n) " && read -n 1 reply
 
     ## Either delete or abort
     case $reply in
@@ -553,7 +553,27 @@ function delete_step {
 }
 
 function autorun_steps {
-    show_heading "Running through all configuration steps (\"b\" to go back):"
+    local proceed=1
+    local reply=""
+    local skipsteps=1
+
+    while [ $proceed -ne 0 ]; do
+        show_heading "Autorun configuration (\"b\" to go back):"
+        echo ""
+        show_question "Do you want the option to skip steps before they are executed? (y/n) " && read -n 1 reply
+
+        ## Either delete or abort
+        case $reply in
+            [Yy]*) skipsteps=0 && proceed=0;;
+            [Nn]*) skipsteps=1 && proceed=0;;
+            [Bb]*) proceed=0 && clear && main;;
+            *) clear && show_error "\aNot an option, try again.\n";;
+        esac
+    done
+
+    echo ""
+    echo ""
+    show_heading "Running through all configuration steps (\"a\" to abort):"
     echo ""
     refresh_steps
     list_steps
@@ -562,7 +582,7 @@ function autorun_steps {
 
     ## Option to abort
     case $reply in
-        [Bb]*) clear && main;;
+        [Aa]*) clear && main;;
     esac
 
     ## Loop through all steps and run them
@@ -570,6 +590,17 @@ function autorun_steps {
         echo ""
         show_heading "${stepnames[$i]}:"
         echo ""
+
+        ## Give the option to skip the step
+        if [ $skipsteps -eq 0 ]; then
+            show_question "Press any key to continue... (\"s\" to skip and \"a\" to abort) " && read -n 1 reply
+
+            case $reply in
+                [Ss]*) echo -e "\n\nSkipped" && continue;;
+                [Aa]*) clear && show_error "\aOperation aborted!\n" && main && break;;
+            esac
+        fi
+
         execute_step $(($i+1)) auto
     done
 
