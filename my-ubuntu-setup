@@ -62,6 +62,7 @@ function show_error {
 function refresh_steps {
     steps=()
     stepnames=()
+    local stepname=""
 
     while IFS= read -r step; do
         stepname=$(basename "${step}")
@@ -73,6 +74,8 @@ function refresh_steps {
 }
 
 function list_steps {
+    local stepname=""
+
     for ((i = 0; i < ${#steps[@]}; i++)); do
         stepname=$(basename "${steps[i]}")
         stepname="${stepname%%.step}"
@@ -88,7 +91,8 @@ function count_steps {
 }
 
 function execute_step {
-    step="${steps[$(($1-1))]}"
+    local step="${steps[$(($1-1))]}"
+    local auto=1
 
     if [ ! -f "$step" ]; then
         show_error "Step \"$step\" can't be found!"
@@ -97,13 +101,11 @@ function execute_step {
 
     if [ "$2" = "auto" ]; then
         auto=0
-    else
-        auto=1
     fi
 
     ## Run script
     (source "$step")
-    result=$?
+    local result=$?
     echo ""
 
     ## Validate outcome
@@ -127,10 +129,10 @@ function execute_step {
 }
 
 function insert_step {
-    path="$1"
-    name="$2"
-    append=0
-    order=0
+    local path="$1"
+    local name="$2"
+    local append=0
+    local order=0
 
     ## Make sure that order is numeric before assigning
     if [[ $3 =~ ^[0-9]+$ ]]; then
@@ -140,7 +142,8 @@ function insert_step {
 
     ## Loop through steps and rename them appropriately
     refresh_steps
-    stepno=1
+    local stepno=1
+    local step=""
 
     ## Loop through all steps
     for ((i = 0; i < ${#steps[@]}; i++)); do
@@ -189,7 +192,8 @@ function insert_step {
 function reorder_steps {
     ## Loop through steps and rename them appropriately
     refresh_steps
-    stepno=1
+    local stepno=1
+    local step=""
 
     ## Rename them so that they are properly ordered
     for ((i = 0; i < ${#steps[@]}; i++)); do
@@ -272,8 +276,11 @@ function run_step {
 
 ## Create a step
 function create_step {
-    proceed=1
-    tempscript=1
+    local proceed=1
+    local tempscript=1
+    local script=""
+    local name=""
+    local order=""
     show_heading "Creating a new step (\"b\" to go back)"
     echo ""
 
@@ -368,7 +375,9 @@ function create_step {
 
 function manage_steps {
     ## Select step to edit
-    proceed=1
+    local proceed=1
+    local step=0
+    local action=""
     
     while [ $proceed -ne 0 ]; do
         show_heading "Manage what step? (\"b\" to go back)"
@@ -419,9 +428,14 @@ function manage_steps {
 }
 
 function edit_step {
-    index=$(($1-1))
-    proceed=1
-    samefile=1
+    local index=$(($1-1))
+    local proceed=1
+    local samefile=1
+    local script=""
+    local name=""
+    local order=0
+    local tempscript=1
+
     show_heading "Editing \"${stepnames[$index]}\" (\"b\" to go back)"
     echo ""
 
@@ -529,7 +543,9 @@ function edit_step {
 }
 
 function delete_step {
-    index=$(($1-1))
+    local index=$(($1-1))
+    local reply=""
+
     show_heading "Deleting ${stepnames[$index]}..."
     echo ""
     show_question "Are you sure you want to continue? (\"y\" to continue, anything else to abort) "
@@ -573,6 +589,8 @@ function autorun_steps {
 }
 
 function cleanup {
+    local reply=""
+
     show_heading "What would you like to do?"
     echo ""
     echo "1. Remove old kernel(s)?"
