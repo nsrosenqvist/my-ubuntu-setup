@@ -114,7 +114,7 @@ function execute_step {
 
         if [ $auto -ne 0 ]; then
             echo ""
-            show_question "Press any key to continue..." && read dummy
+            show_question "Press any key to continue..." && read -n 1 dummy
         fi
         return 1
     else
@@ -122,7 +122,7 @@ function execute_step {
 
         if [ $auto -ne 0 ]; then
             echo ""
-            show_question "Press any key to continue..." && read dummy
+            show_question "Press any key to continue..." && read -n 1 dummy
         fi
         return 0
     fi
@@ -213,6 +213,8 @@ function reorder_steps {
 ##-----------Views-----------##
 ## Main menu
 function main {
+    local reply=""
+
     show_heading "What would you like to do?"
     echo ""
     echo "1. Run a configuration step"
@@ -240,6 +242,7 @@ function main {
 
 ## Run a step
 function run_step {
+    local reply=""
     show_heading "Which step would you like to run? (\"b\" to go back)"
     echo ""
 
@@ -286,8 +289,7 @@ function create_step {
 
     ## Script path
     while [ $proceed -ne 0 ]; do
-        show_question "Script to import (Empty to create a new script): "
-        read script
+        show_question "Script to import (Empty to create a new script): " && read script
 
         case $script in
             [Bb]) clear && main;;
@@ -319,8 +321,7 @@ function create_step {
     done
 
     ## Step name
-    show_question "Step name (only use characters allowed in a Linux filesystem): "
-    read name
+    show_question "Step name (only use characters allowed in a Linux filesystem): " && read name
 
     case $name in
         [Bb]) clear && main;;
@@ -334,8 +335,7 @@ function create_step {
         refresh_steps
         list_steps
         echo ""
-        show_question "Execution order (Empty to insert at end): "
-        read order
+        show_question "Execution order (Empty to insert at end): " && read order
 
         case $order in
             [Bb]*) clear && main;;
@@ -367,8 +367,7 @@ function create_step {
     echo ""
     show_success "Step created successfully!"
     echo ""
-    show_question "Press any key to continue... "
-    read reply
+    show_question "Press any key to continue... " && read -n 1 dummy
 
     clear && main
 }
@@ -385,8 +384,7 @@ function manage_steps {
         refresh_steps
         list_steps
         echo ""
-        show_question "Step: "
-        read step
+        show_question "Step: " && read step
 
         case $step in
             [Bb]*) clear && main;;
@@ -415,8 +413,7 @@ function manage_steps {
         echo "2. Delete"
         echo "b. Back"
         echo ""
-        show_question "Action: "
-        read action
+        show_question "Action: " && read action
 
         case $action in
             [Bb]*) clear && proceed=0 && manage_steps;; # Back
@@ -441,8 +438,7 @@ function edit_step {
 
     ## Script path
     while [ $proceed -ne 0 ]; do
-        show_question "Script to import (${steps[$index]}) (Empty to skip change, \"e\" to edit file): "
-        read script
+        show_question "Script to import (${steps[$index]}) (Empty to skip change, \"e\" to edit file): " && read script
 
         case $script in
             [Bb]) clear && main;;
@@ -473,8 +469,7 @@ function edit_step {
     done
 
     ## Step name
-    show_question "Step name (${stepnames[$index]}) (Empty to skip change, only use characters allowed in a Linux filesystem): "
-    read name
+    show_question "Step name (${stepnames[$index]}) (Empty to skip change, only use characters allowed in a Linux filesystem): " && read name
 
     case $name in
         [Bb]) clear && main;;
@@ -493,8 +488,7 @@ function edit_step {
         refresh_steps
         list_steps
         echo ""
-        show_question "Execution order ($(($index+1))) (Empty to insert at end): "
-        read order
+        show_question "Execution order ($(($index+1))) (Empty to insert at end): " && read order
 
         case $order in
             [Bb]*) clear && main;;
@@ -536,8 +530,7 @@ function edit_step {
     echo ""
     show_success "Step updated successfully!"
     echo ""
-    show_question "Press any key to continue... "
-    read reply
+    show_question "Press any key to continue... " && read -n 1 dummy
 
     clear && manage_steps
 }
@@ -548,8 +541,7 @@ function delete_step {
 
     show_heading "Deleting ${stepnames[$index]}..."
     echo ""
-    show_question "Are you sure you want to continue? (\"y\" to continue, anything else to abort) "
-    read reply
+    show_question "Are you sure you want to continue? (\"y\" to continue, anything else to abort) " && read -n 1 reply
 
     ## Either delete or abort
     case $reply in
@@ -566,8 +558,7 @@ function autorun_steps {
     refresh_steps
     list_steps
     echo ""
-    show_question "Press any key to continue... "
-    read reply
+    show_question "Press any key to continue... " && read -n 1 reply
 
     ## Option to abort
     case $reply in
@@ -583,8 +574,7 @@ function autorun_steps {
     done
 
     echo ""
-    show_question "Press any key to continue..."
-    read reply
+    show_question "Press any key to continue..." && read -n 1 dummy
     clear && main   
 }
 
@@ -600,8 +590,7 @@ function cleanup {
     echo "5. Reorder steps?"
     echo "b. Back"
     echo ""
-    show_question "Enter your choice: "
-    read reply
+    show_question "Enter your choice: " && read reply
 
     case $reply in
         # Remove Old Kernel
@@ -641,9 +630,7 @@ function cleanup {
     esac
 
     echo ""
-    show_question "Press any key to continue... "
-    read reply
-
+    show_question "Press any key to continue... " && read -n 1 dummy
     clear && cleanup
 }
 
