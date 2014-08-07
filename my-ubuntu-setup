@@ -88,8 +88,10 @@ function count_steps {
 }
 
 function execute_step {
-    if [ ! -f "$1" ]; then
-        show_error "Step \"$1\" can't be found!"
+    step="${steps[$(($1-1))]}"
+
+    if [ ! -f "$step" ]; then
+        show_error "Step \"$step\" can't be found!"
         return 1
     fi
 
@@ -100,7 +102,7 @@ function execute_step {
     fi
 
     ## Run script
-    (source "${steps[$index]}")
+    (source "$step")
     result=$?
     echo ""
 
@@ -256,11 +258,10 @@ function run_step {
                     clear && show_error "\aNot an option, try again.\n" && run_step
                 else
                     ## Run selected step
-                    index=$(($reply-1))
                     echo ""
                     show_heading "Running: \"${stepnames[$index]}\""
                     echo ""
-                    execute_step "${steps[$index]}"
+                    execute_step $reply
 
                     clear && run_step
                 fi
@@ -559,11 +560,10 @@ function autorun_steps {
 
     ## Loop through all steps and run them
     for ((i = 0; i < ${#steps[@]}; i++)); do
-        step="${steps[i]}"
         echo ""
         show_heading "${stepnames[$i]}:"
         echo ""
-        execute_step "${steps[$i]}" auto
+        execute_step $(($i+1)) auto
     done
 
     echo ""
