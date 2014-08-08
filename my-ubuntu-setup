@@ -298,7 +298,13 @@ function create_step {
                 if [ -z "$script" ]; then
                     script="$stepsdir/.new-script.tmp"
                     nano "$script"
-                    proceed=0
+
+                    if [ -f "$script" ]; then
+                        proceed=0
+                    else
+                        show_error "\n\aYou need to save the file!\n"
+                    fi
+                    
                 ## Import Script
                 else
                     ## Support tilde for "home"
