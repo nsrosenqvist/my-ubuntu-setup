@@ -304,7 +304,6 @@ function create_step {
                     else
                         show_error "\n\aYou need to save the file!\n"
                     fi
-                    
                 ## Import Script
                 else
                     ## Support tilde for "home"
