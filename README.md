@@ -5,9 +5,16 @@ This utility was forked from Saw Hewitt's ["Ubuntu Post Install Script"](https:/
 
 The purpose of this script is to easily set up your personal environment on multiple computers and to easily restore it after a reinstallation of the OS.
 
-##Usage:
+## Installation
 
-Either download and install to your path and launch the script with `my-ubuntu-setup` or you can run it directly from the source folder with `bash my-ubuntu-setup`.
+Clone the repository and then use make.
+
+```bash
+git clone https://github.com/nsrosenqvist/my-ubuntu-setup.git && cd my-ubuntu-setup
+make && sudo make install
+```
+
+##Usage:
 
 On first run the script creates a directory under `~/.config/` where all configuration steps will be stored. It also creates a config-file called `globals.conf` where you can edit variables which can be used by configuration steps, e.g. `emailaddress="your-name@example.com"`.
 
