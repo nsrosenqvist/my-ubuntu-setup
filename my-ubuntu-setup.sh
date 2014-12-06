@@ -233,7 +233,7 @@ function main {
         2) clear && create_step;; # Create a step
         3) clear && manage_steps;; # Manage steps
         4) clear && autorun_steps;; # Autorun all configured steps
-        5) clear && nano "$globalspath" && clear && main;; # Edit the global variables
+        5) clear && editor "$globalspath" && clear && main;; # Edit the global variables
         6) clear && cleanup;; # Perform cleanup operations
         [Qq]* ) echo "" && exit 0;; # Quit
         * ) clear && show_error "\aNot an option, try again." && main;;
@@ -297,7 +297,7 @@ function create_step {
                 ## Create script
                 if [ -z "$script" ]; then
                     script="$stepsdir/.new-script.tmp"
-                    nano "$script"
+                    editor "$script"
 
                     if [ -f "$script" ]; then
                         proceed=0
@@ -447,9 +447,9 @@ function edit_step {
 
         case $script in
             [Bb]) clear && main;;
-            ## Edit script with nano
+            ## Edit script with editor
             [Ee])
-                nano "${steps[$index]}"
+                editor "${steps[$index]}"
                 script="${steps[$index]}"
                 samefile=0
                 proceed=0
