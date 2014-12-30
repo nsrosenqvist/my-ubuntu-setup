@@ -165,9 +165,9 @@ function insert_step {
                 ## Add the file at step if at correct index
                 if [ $stepno -eq $order ]; then
                     mv "$path" "$stepsdir/${stepno}_$name.step"
-                    
+
                     if [ "$step" != "$stepsdir/$(($stepno+1))_${stepnames[$i]}.step" ]; then
-                        mv "$step" "$stepsdir/$(($stepno+1))_${stepnames[$i]}.step"    
+                        mv "$step" "$stepsdir/$(($stepno+1))_${stepnames[$i]}.step"
                     fi
                 else
                     if [ "$step" != "$stepsdir/${stepno}_${stepnames[$i]}.step" ]; then
@@ -243,6 +243,7 @@ function main {
 ## Run a step
 function run_step {
     local reply=""
+    local index=0
     show_heading "Which step would you like to run? (\"b\" to go back)"
     echo ""
 
@@ -266,6 +267,7 @@ function run_step {
                 else
                     ## Run selected step
                     echo ""
+                    index=$(($reply-1))
                     show_heading "Running: \"${stepnames[$index]}\""
                     echo ""
                     execute_step $reply
@@ -382,7 +384,7 @@ function manage_steps {
     local proceed=1
     local step=0
     local action=""
-    
+
     while [ $proceed -ne 0 ]; do
         show_heading "Manage what step? (\"b\" to go back)"
         echo ""
@@ -507,7 +509,7 @@ function edit_step {
                     script="$stepsdir/.new-script.tmp"
                     tempscript=0
                 fi
-                
+
                 if [ -z "$order" ]; then
                     insert_step "$script" "$name"
                     proceed=0
@@ -611,7 +613,7 @@ function autorun_steps {
 
     echo ""
     show_question "Press any key to continue..." && read -n 1 dummy
-    clear && main   
+    clear && main
 }
 
 function cleanup {
