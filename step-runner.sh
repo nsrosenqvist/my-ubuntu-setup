@@ -341,11 +341,18 @@ function create_step {
     proceed=1
 
     while [ $proceed -ne 0 ]; do
-        echo ""
         refresh_steps
-        list_steps
-        echo ""
-        show_question "Execution order (Empty to insert at end): " && read order
+
+        # Skip asking where to insert if there are no previous steps
+        if [ -z "$(echo "${steps[@]}")" ]; then
+            order=""
+            proceed=0
+        else
+            echo ""
+            list_steps
+            echo ""
+            show_question "Execution order (Empty to insert at end): " && read order
+        fi
 
         case $order in
             [Bb]*) clear && main;;
