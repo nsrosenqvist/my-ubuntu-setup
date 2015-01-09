@@ -2,7 +2,7 @@
 SHELL=/bin/bash
 
 NAME=step-runner
-VERSION=1.2
+VERSION=1.2.0
 INSTALL_DIR=/usr/local/bin
 FILE_NAME=$(NAME).sh
 PKG_NAME=$(NAME)
