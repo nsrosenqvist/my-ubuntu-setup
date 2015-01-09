@@ -1,27 +1,22 @@
-My-Ubuntu-Setup
+Step-runner
 ===============
 
-This utility was forked from Saw Hewitt's ["Ubuntu Post Install Script"](https://github.com/snwh/ubuntu-post-install) but has been completely redone to use a different workflow. It's licensed under GPLv3, see the "LICENSE" file for more information.
+This utility is meant to execute larger jobs in steps. It enables automatic execution of scripts in numbered order and also provides methods of managing and rearranging scripts. Very convenient to use for system configuration steps after a reinstall. The way I myself am using this script is that I have a git repository where I store all my configurations and can simply clone the repository whenever I need to set up my development environment. Check out [my configuration](https://github.com/nsrosenqvist/dev-setup) for an example, which you are free to fork and do whatever with.
 
-The purpose of this script is to easily set up your personal environment on multiple computers and to easily restore it after a reinstallation of the OS.
+Originally this project was fork of Saw Hewitt's ["Ubuntu Post Install Script"](https://github.com/snwh/ubuntu-post-install) but has been completely redone to use a different workflow. It's licensed under GPLv3, see the "LICENSE" file for more information.
 
 ## Installation
 
-Clone the repository and then use make.
+Install the utility with this one-liner below:
 
 ```bash
-git clone https://github.com/nsrosenqvist/my-ubuntu-setup.git && cd my-ubuntu-setup
-make && sudo make install
+git clone https://github.com/nsrosenqvist/step-runner.git && cd step-runner && sudo make install
 ```
 
-##Usage:
+## Usage:
 
-On first run the script creates a directory under `~/.config/` where all configuration steps will be stored. It also creates a config-file called `globals.conf` where you can edit variables which can be used by configuration steps, e.g. `emailaddress="your-name@example.com"`.
+You can either pass the path to a directory where the job is located or if no arguments are set it will work out of the current working directory. If a file called "globals.conf" is found in the directory it's automatically loaded so that it's content is accessible to every other step of the job.
 
-A configuration step is basically a BASH-script where you can add PPA's, install applications, edit files or whatever you wish.
+A configuration step is basically a BASH-script where you can add PPA's, install applications, edit files or whatever you wish. The file name should end in `.step` instead of `.sh` to be picked up by the step-runner.
 
-You can either use your own editor to edit the scripts in the `~/.config/my-ubuntu-setup` directory or use the menu from the script which launches an editor instance whenever editing or creating steps. The latter is the preferred way since it will make sure that the files are correctly named and numbered. If you've been mucking around too much with the files outside of the script's editor, you can run "Reorder steps" from the "Cleanup" menu and it will rename them appropriately.
-
-##Pro-tip:
-
-The way I myself am using this script is that I have a git repository, which I pull to `~/.config/my-ubuntu-setup`, where I store all my configurations and can simply clone the repository whenever I need to set up my development environment. Check out [my configuration](https://github.com/nsrosenqvist/env-setup) for an example, which you are free to fork and do whatever with.
+You can either use your own editor to edit the scripts or use the menu from the script which launches an editor instance whenever editing or creating steps. The latter is the preferred way since it will make sure that the files are correctly named and numbered. If you've been mucking around too much with the files outside of the script's editor, you can run "Reorder steps" from the "Cleanup" menu and it will rename them appropriately.

@@ -1,8 +1,8 @@
 .POSIX:
 SHELL=/bin/bash
 
-NAME=my-ubuntu-setup
-VERSION=1.1.1
+NAME=step-runner
+VERSION=1.2
 INSTALL_DIR=/usr/local/bin
 FILE_NAME=$(NAME).sh
 PKG_NAME=$(NAME)
