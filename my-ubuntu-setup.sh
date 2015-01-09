@@ -1,8 +1,9 @@
 #!/bin/bash
 
 #----------------------------------------------------------------------------#
-# My-Ubuntu-Setup - A smart utility to easily handle setting up environments
-# Copyright (C) 2014  Niklas Rosenqvist
+# Step-runner - A smart utility to easily execute batch jobs in steps that
+# need user monitoring.
+# Copyright (C) 2015  Niklas Rosenqvist
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,23 +21,27 @@
 #----------------------------------------------------------------------------#
 
 clear
-appname="my-ubuntu-setup"
-stepsdir="$HOME/.config/$appname"
-globalspath="$stepsdir/globals.conf"
+appname="step-runner"
+stepsdir="$1"
 steps=()
 stepnames=()
 
-## Create config directory
+## Set working directory to pwd if none has been provided
+if [ -z "$stepdsir" ]; then
+    stepsdir="$(pwd)"
+fi
+
+## Make sure that the working directory exists
 if [ ! -d "$stepsdir" ]; then
-    mkdir -p "$stepsdir"
+    echo "The specified directory doesn't exist ($stepsdir)."
 fi
 
-## Create global vars file
-if [ ! -f "$globalspath" ]; then
-    echo "emailaddress=\"your-email@example.com\"" > "$globalspath"
-fi
+## Include global vars file if it exists
+globalspath="$stepsdir/globals.conf"
 
-source "$globalspath"
+if [ -f "$globalspath" ]; then
+    source "$globalspath"
+fi
 
 ##-----------Functions-----------##
 function show_heading {
@@ -217,12 +222,11 @@ function main {
 
     show_heading "What would you like to do?"
     echo ""
-    echo "1. Run a configuration step"
-    echo "2. Create a configuration step"
-    echo "3. Manage configuration steps"
-    echo "4. Run through all configuration steps automatically"
-    echo "5. Edit step variables"
-    echo "6. Cleanup the system"
+    echo "1. Run a step"
+    echo "2. Create a step"
+    echo "3. Manage steps"
+    echo "4. Run through all steps automatically"
+    echo "5. Edit global configuration file"
     echo "q. Quit"
     echo ""
     show_question "Enter your choice: " && read reply
@@ -234,7 +238,6 @@ function main {
         3) clear && manage_steps;; # Manage steps
         4) clear && autorun_steps;; # Autorun all configured steps
         5) clear && editor "$globalspath" && clear && main;; # Edit the global variables
-        6) clear && cleanup;; # Perform cleanup operations
         [Qq]* ) echo "" && exit 0;; # Quit
         * ) clear && show_error "\aNot an option, try again." && main;;
     esac
@@ -614,62 +617,6 @@ function autorun_steps {
     echo ""
     show_question "Press any key to continue..." && read -n 1 dummy
     clear && main
-}
-
-function cleanup {
-    local reply=""
-
-    show_heading "What would you like to do?"
-    echo ""
-    echo "1. Remove old kernel(s)?"
-    echo "2. Remove orphaned packages?"
-    echo "3. Remove leftover configuration files?"
-    echo "4. Clean package cache?"
-    echo "5. Reorder steps?"
-    echo "b. Back"
-    echo ""
-    show_question "Enter your choice: " && read reply
-
-    case $reply in
-        # Remove Old Kernel
-        1)
-            show_heading "\nRemoving old Kernel(s)...\n"
-            sudo dpkg -l 'linux-*' | sed '/^ii/!d;/'"$(uname -r | sed "s/\(.*\)-\([^0-9]\+\)/\1/")"'/d;s/^[^ ]* [^ ]* \([^ ]*\).*/\1/;/[0-9]/!d' | grep -v linux-libc-dev | xargs sudo apt-get -y purge
-            show_success "\nDone."
-        ;;
-        # Remove Orphaned Packages
-        2)
-            show_heading "\nRemoving orphaned packages...\n"
-            sudo apt-get autoremove -y
-            show_success "\nDone."
-        ;;
-        # Remove residual config files?
-        3)
-            show_heading "\nRemoving leftover configuration files...\n"
-            sudo dpkg --purge $(COLUMNS=200 dpkg -l | grep '^rc' | tr -s ' ' | cut -d ' ' -f 2)
-            show_success "\nDone."
-        ;;
-        # Clean Package Cache
-        4)
-            show_heading "\nCleaning package cache...\n"
-            sudo apt-get clean
-            show_success "\Done."
-        ;;
-        # Reorder steps
-        5)
-            show_heading "\nReordering steps...\n"
-            reorder_steps
-            show_success "Done."
-        ;;
-        # Back
-        [Bb]*) clear && main;;
-        # Invalid choice
-        * ) clear && show_error "\aNot an option, try again.\n" && cleanup;;
-    esac
-
-    echo ""
-    show_question "Press any key to continue... " && read -n 1 dummy
-    clear && cleanup
 }
 
 main
